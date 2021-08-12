@@ -25,10 +25,7 @@ contract Crowdfundr {
             _maxProjectBalance = maxProjectBalance;
         }
         
-        if (msg.value < _minCreditAmount) {
-            // throw error
-            revert('minimum deposit cannot be less than 1 ETH');
-        } else {
+        if (msg.value >= _minCreditAmount) {
             // current balance will be equal to initial deposit done by owner
             _projectCurrentBalance = msg.value;
             
@@ -100,5 +97,9 @@ contract Crowdfundr {
         } else {
             revert("you can't debit ether from project.");
         }
+    }
+
+    function getProjectName() public view returns (string memory) {
+        return _projectName;
     }
 }
