@@ -1,6 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
+contract CrowdfundrManager {
+    Crowdfundr[] crowdfundrAssets;
+
+    function createChildContract(string memory projectName, uint maxProjectBalance) public payable {
+        Crowdfundr newCarAsset = new Crowdfundr(projectName, maxProjectBalance);
+        crowdfundrAssets.push(newCarAsset);
+    }
+
+    function getDeployedChildContracts() public view returns (Crowdfundr[] memory) {
+        return crowdfundrAssets;
+    }
+}
+
 contract Crowdfundr {
     
     string public _projectName;
