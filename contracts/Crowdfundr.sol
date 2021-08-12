@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
-contract ProjectCrowdfundr {
+contract Crowdfundr {
     
     string public _projectName;
     address public _projectOwner;
@@ -19,7 +19,7 @@ contract ProjectCrowdfundr {
         
         if (maxProjectBalance < _minCreditAmount) {
             // throw error
-            revert('max project balace cannot be less than 0.01 ETH');
+            revert('max project balace cannot be less than 1 ETH');
         } else {
             // assign max project balace
             _maxProjectBalance = maxProjectBalance;
@@ -27,7 +27,7 @@ contract ProjectCrowdfundr {
         
         if (msg.value < _minCreditAmount) {
             // throw error
-            revert('minimum deposit cannot be less than 0.01 ETH');
+            revert('minimum deposit cannot be less than 1 ETH');
         } else {
             // current balance will be equal to initial deposit done by owner
             _projectCurrentBalance = msg.value;
