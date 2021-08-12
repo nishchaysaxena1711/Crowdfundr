@@ -1,0 +1,23 @@
+{
+  "name": "crowdfundr",
+  "version": "1.0.0",
+  "description": "Project Crowdfundr",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nishchaysaxena1711/Crowdfundr.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nishchaysaxena1711/Crowdfundr/issues"
+  },
+  "homepage": "https://github.com/nishchaysaxena1711/Crowdfundr#readme",
+  "devDependencies": {
+    "hardhat": "^2.6.0"
+  }
+}
