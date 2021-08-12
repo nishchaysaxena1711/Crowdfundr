@@ -15,5 +15,10 @@ describe("Crowdfundr", function() {
 
     it("validate project get successfully created or not", async function() {
         expect(await crowdfundr.getProjectName()).to.deep.equal("CrowdFundr Test Project");
+        expect(await crowdfundr.getProjectOwner()).to.deep.equal(owner.address);
+        expect(await crowdfundr.getProjectBalance()).to.deep.equal(BigNumber.from(50));
+        expect(await crowdfundr.getProjectMaximumBalance()).to.deep.equal(BigNumber.from(100));
+        expect(await crowdfundr.getAddresses()).to.deep.equal([owner.address]);
+        expect(await crowdfundr.getBalanceOfDepositor(owner.address)).to.deep.equal(BigNumber.from(50));
     });
 });

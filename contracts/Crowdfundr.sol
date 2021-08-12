@@ -10,7 +10,7 @@ contract Crowdfundr {
     uint public _projectCreatedAt;
     uint public _projectCurrentBalance;
     mapping(address => uint) public _depositors;
-    address[] public addresses;
+    address[] public _addresses;
     
     constructor(string memory projectName, uint maxProjectBalance) payable {
         _projectName = projectName;
@@ -30,16 +30,16 @@ contract Crowdfundr {
             _projectCurrentBalance = msg.value;
             
             // added owner to project depositor list
-            addresses.push(msg.sender);
+            _addresses.push(msg.sender);
             _depositors[msg.sender] = msg.value;
         }
     }
     
     // Refund is called by internal functions only. It will refund the deposit balance in partial or full to the respective addresses.
     function refund() private {
-        for (uint i = 0; i < addresses.length; i++) {
-            address refundOwner = addresses[i];
-            uint refundValue = _depositors[addresses[i]];
+        for (uint i = 0; i < _addresses.length; i++) {
+            address refundOwner = _addresses[i];
+            uint refundValue = _depositors[_addresses[i]];
             if (_projectCurrentBalance >= refundValue) {
                 payable(refundOwner).transfer(refundValue);
                 _projectCurrentBalance -= refundValue;
@@ -69,7 +69,7 @@ contract Crowdfundr {
            
             if (_depositors[msg.sender] == 0) {
                 // new depositor
-                addresses.push(msg.sender);
+                _addresses.push(msg.sender);
                 _depositors[msg.sender] = msg.value;
             } else {
                 // existing depositor
@@ -101,5 +101,25 @@ contract Crowdfundr {
 
     function getProjectName() public view returns (string memory) {
         return _projectName;
+    }
+
+    function getProjectBalance() public view returns (uint) {
+        return _projectCurrentBalance;
+    }
+
+    function getProjectOwner() public view returns (address) {
+        return _projectOwner;
+    }
+
+    function getProjectMaximumBalance() public view returns (uint) {
+        return _maxProjectBalance;
+    }
+
+    function getAddresses() public view returns (address[] memory) {
+        return _addresses;
+    }
+
+    function getBalanceOfDepositor(address depositorAddress) public view returns (uint) {
+        return _depositors[depositorAddress];
     }
 }
