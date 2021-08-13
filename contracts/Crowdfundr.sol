@@ -2,32 +2,84 @@
 pragma solidity ^0.8.4;
 
 contract CrowdfundrManager {
-    Crowdfundr[] crowdfundrAssets;
+    mapping(address => Crowdfundr) _croudFundrAddresses;
+    mapping(uint => address) _projectIds;
+    uint _projectId;
 
-    function createChildContract(string memory projectName, uint maxProjectBalance) public payable {
-        Crowdfundr newCarAsset = new Crowdfundr(projectName, maxProjectBalance);
-        crowdfundrAssets.push(newCarAsset);
+    function getProjectId(uint projectId) private pure returns (uint){
+        return projectId % 231;
     }
 
-    function getDeployedChildContracts() public view returns (Crowdfundr[] memory) {
-        return crowdfundrAssets;
+    function createCrowdfundr(string memory projectName, uint projectId, uint maxProjectBalance) public {
+        _projectId = getProjectId(projectId);
+        _croudFundrAddresses[msg.sender] = new Crowdfundr(projectName, maxProjectBalance, _projectId, msg.sender);
+        _projectIds[_projectId] = msg.sender;
+    }
+
+    function credit(uint projectId) public {
+        _croudFundrAddresses[_projectIds[getProjectId(projectId)]].credit(msg.sender);
+    }
+
+    function debit(uint projectId, uint amount) public {
+        _croudFundrAddresses[_projectIds[getProjectId(projectId)]].debit(amount, msg.sender);
+    }
+
+    function deregister(uint projectId) public {
+        _croudFundrAddresses[_projectIds[getProjectId(projectId)]].deRegisterProject(msg.sender);
+    }
+
+    function getProjectName(uint projectId) public view returns (string memory) {
+        return _croudFundrAddresses[_projectIds[getProjectId(projectId)]].getProjectName(msg.sender);
+    }
+
+    function getProjectBalance(uint projectId) public view returns (uint) {
+        return _croudFundrAddresses[_projectIds[getProjectId(projectId)]].getProjectBalance(msg.sender);
+    }
+
+    function getProjectOwner(uint projectId) public view returns (address) {
+        return _croudFundrAddresses[_projectIds[getProjectId(getProjectId(projectId))]].getProjectOwner(msg.sender);
+    }
+
+    function getProjectMaximumBalance(uint projectId) public view returns (uint) {
+        return _croudFundrAddresses[_projectIds[getProjectId(projectId)]].getProjectMaximumBalance(msg.sender);
+    }
+
+    function getAddresses(uint projectId) public view returns (address[] memory) {
+        return _croudFundrAddresses[_projectIds[getProjectId(projectId)]].getAddresses(msg.sender);
+    }
+
+    function getBalanceOfDepositor(uint projectId, address depositorAddress) public view returns (uint) {
+        return _croudFundrAddresses[_projectIds[getProjectId(projectId)]].getBalanceOfDepositor(depositorAddress, msg.sender);
     }
 }
 
 contract Crowdfundr {
-    
+    uint public _projectId;
     string public _projectName;
-    address public _projectOwner;
+    address private _projectOwner;
     uint constant _minCreditAmount = 1;
     uint public _maxProjectBalance;
     uint public _projectCreatedAt;
     uint public _projectCurrentBalance;
     mapping(address => uint) public _depositors;
     address[] public _addresses;
+    address private _factory;
+
+    modifier onlyOwner(address caller) {
+        require(caller == _projectOwner, "You're not the owner of the contract");
+        _;
+    }
     
-    constructor(string memory projectName, uint maxProjectBalance) payable {
+    modifier onlyFactory() {
+        require(msg.sender == _factory, "You need to use the factory");
+        _;
+    }
+
+    constructor(string memory projectName, uint maxProjectBalance, uint projectId, address caller) payable {
+        _projectId = projectId;
         _projectName = projectName;
-        _projectOwner = msg.sender;
+        _projectOwner = caller;
+        _factory = msg.sender;
         _projectCreatedAt = block.timestamp;
         
         if (maxProjectBalance < _minCreditAmount) {
@@ -43,8 +95,8 @@ contract Crowdfundr {
             _projectCurrentBalance = msg.value;
             
             // added owner to project depositor list
-            _addresses.push(msg.sender);
-            _depositors[msg.sender] = msg.value;
+            _addresses.push(caller);
+            _depositors[caller] = msg.value;
         }
     }
     
@@ -54,19 +106,19 @@ contract Crowdfundr {
             address refundOwner = _addresses[i];
             uint refundValue = _depositors[_addresses[i]];
             if (_projectCurrentBalance >= refundValue) {
-                payable(refundOwner).transfer(refundValue);
                 _projectCurrentBalance -= refundValue;
+                payable(refundOwner).transfer(refundValue);
             } else {
-                payable(refundOwner).transfer(_projectCurrentBalance);
                 _projectCurrentBalance = 0;
+                payable(refundOwner).transfer(_projectCurrentBalance);
                 break;
             }
         }
     }
     
-    // ideally it should be called by projectOwner only to deregister the project within 30 days
-    function deRegisterProject() public {
-        if ((msg.sender == _projectOwner) && (block.timestamp <= (_projectCreatedAt + 30 days))) {
+    // it should be called by projectOwner only to deregister the project within 30 days
+    function deRegisterProject(address caller) public onlyFactory onlyOwner(caller) {
+        if ((caller == _projectOwner) && (block.timestamp <= (_projectCreatedAt + 30 days))) {
             refund();
         } else {
             revert("you can't deregister project.");
@@ -74,19 +126,19 @@ contract Crowdfundr {
     }
     
     // can be called by anyone who wants wo credit funds in the project within 30 days
-    function credit() external payable {
+    function credit(address depositorAddress) external payable onlyFactory {
         // check if current balance is less than the max project balance
         // && credit amount should be greater than minimum deposit amount
         // && projectCreation time should be less than or equal to 30 days 
         if ((_projectCurrentBalance < _maxProjectBalance) && (msg.value >= _minCreditAmount) && (block.timestamp <= (_projectCreatedAt + 30 days))) {
            
-            if (_depositors[msg.sender] == 0) {
+            if (_depositors[depositorAddress] == 0) {
                 // new depositor
-                _addresses.push(msg.sender);
-                _depositors[msg.sender] = msg.value;
+                _addresses.push(depositorAddress);
+                _depositors[depositorAddress] = msg.value;
             } else {
                 // existing depositor
-                _depositors[msg.sender] = _depositors[msg.sender] + msg.value;
+                _depositors[depositorAddress] = _depositors[depositorAddress] + msg.value;
             }
             
             // update project current balance
@@ -102,9 +154,9 @@ contract Crowdfundr {
     }
     
     // ideally it should be called by projectOwner only to debit funds from projectBalance
-    function debit(uint amount) external {
+    function debit(uint amount, address caller) external onlyFactory onlyOwner(caller) {
         // if owner is doing debit from full funded project then only allow them to debit
-        if ((msg.sender == _projectOwner) && (_projectCurrentBalance >= _maxProjectBalance)) {
+        if ((caller == _projectOwner) && (_projectCurrentBalance >= _maxProjectBalance)) {
             _projectCurrentBalance -= amount;
             payable(_projectOwner).transfer(amount);
         } else {
@@ -112,27 +164,27 @@ contract Crowdfundr {
         }
     }
 
-    function getProjectName() public view returns (string memory) {
+    function getProjectName(address caller) public view onlyFactory onlyOwner(caller) returns (string memory) {
         return _projectName;
     }
 
-    function getProjectBalance() public view returns (uint) {
+    function getProjectBalance(address caller) public view onlyFactory onlyOwner(caller) returns (uint) {
         return _projectCurrentBalance;
     }
 
-    function getProjectOwner() public view returns (address) {
+    function getProjectOwner(address caller) public view onlyFactory onlyOwner(caller) returns (address) {
         return _projectOwner;
     }
 
-    function getProjectMaximumBalance() public view returns (uint) {
+    function getProjectMaximumBalance(address caller) public view onlyFactory onlyOwner(caller) returns (uint) {
         return _maxProjectBalance;
     }
 
-    function getAddresses() public view returns (address[] memory) {
+    function getAddresses(address caller) public view onlyFactory onlyOwner(caller) returns (address[] memory) {
         return _addresses;
     }
 
-    function getBalanceOfDepositor(address depositorAddress) public view returns (uint) {
+    function getBalanceOfDepositor(address depositorAddress, address caller) public view onlyFactory onlyOwner(caller) returns (uint) {
         return _depositors[depositorAddress];
     }
 }
