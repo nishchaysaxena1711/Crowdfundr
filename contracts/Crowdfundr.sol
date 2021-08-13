@@ -10,21 +10,21 @@ contract CrowdfundrManager {
         return projectId % 231;
     }
 
-    function createCrowdfundr(string memory projectName, uint projectId, uint maxProjectBalance) public {
+    function createCrowdfundr(string memory projectName, uint projectId, uint maxProjectBalance) external payable {
         _projectId = getProjectId(projectId);
-        _croudFundrAddresses[msg.sender] = new Crowdfundr(projectName, maxProjectBalance, _projectId, msg.sender);
+        _croudFundrAddresses[msg.sender] = new Crowdfundr(projectName, maxProjectBalance, _projectId, msg.sender, msg.value);
         _projectIds[_projectId] = msg.sender;
     }
 
-    function credit(uint projectId) public {
-        _croudFundrAddresses[_projectIds[getProjectId(projectId)]].credit(msg.sender);
+    function credit(uint projectId) external payable {
+        _croudFundrAddresses[_projectIds[getProjectId(projectId)]].credit(msg.sender, msg.value);
     }
 
-    function debit(uint projectId, uint amount) public {
+    function debit(uint projectId, uint amount) external {
         _croudFundrAddresses[_projectIds[getProjectId(projectId)]].debit(amount, msg.sender);
     }
 
-    function deregister(uint projectId) public {
+    function deregister(uint projectId) external {
         _croudFundrAddresses[_projectIds[getProjectId(projectId)]].deRegisterProject(msg.sender);
     }
 
@@ -75,7 +75,7 @@ contract Crowdfundr {
         _;
     }
 
-    constructor(string memory projectName, uint maxProjectBalance, uint projectId, address caller) payable {
+    constructor(string memory projectName, uint maxProjectBalance, uint projectId, address caller, uint amount) payable {
         _projectId = projectId;
         _projectName = projectName;
         _projectOwner = caller;
@@ -90,13 +90,13 @@ contract Crowdfundr {
             _maxProjectBalance = maxProjectBalance;
         }
         
-        if (msg.value >= _minCreditAmount) {
+        if (amount >= _minCreditAmount) {
             // current balance will be equal to initial deposit done by owner
-            _projectCurrentBalance = msg.value;
+            _projectCurrentBalance = amount;
             
             // added owner to project depositor list
             _addresses.push(caller);
-            _depositors[caller] = msg.value;
+            _depositors[caller] = amount;
         }
     }
     
@@ -117,7 +117,7 @@ contract Crowdfundr {
     }
     
     // it should be called by projectOwner only to deregister the project within 30 days
-    function deRegisterProject(address caller) public onlyFactory onlyOwner(caller) {
+    function deRegisterProject(address caller) external onlyFactory onlyOwner(caller) {
         if ((caller == _projectOwner) && (block.timestamp <= (_projectCreatedAt + 30 days))) {
             refund();
         } else {
@@ -126,23 +126,23 @@ contract Crowdfundr {
     }
     
     // can be called by anyone who wants wo credit funds in the project within 30 days
-    function credit(address depositorAddress) external payable onlyFactory {
+    function credit(address depositorAddress, uint amount) external payable onlyFactory {
         // check if current balance is less than the max project balance
         // && credit amount should be greater than minimum deposit amount
         // && projectCreation time should be less than or equal to 30 days 
-        if ((_projectCurrentBalance < _maxProjectBalance) && (msg.value >= _minCreditAmount) && (block.timestamp <= (_projectCreatedAt + 30 days))) {
+        if ((_projectCurrentBalance < _maxProjectBalance) && (amount >= _minCreditAmount) && (block.timestamp <= (_projectCreatedAt + 30 days))) {
            
             if (_depositors[depositorAddress] == 0) {
                 // new depositor
                 _addresses.push(depositorAddress);
-                _depositors[depositorAddress] = msg.value;
+                _depositors[depositorAddress] = amount;
             } else {
                 // existing depositor
-                _depositors[depositorAddress] = _depositors[depositorAddress] + msg.value;
+                _depositors[depositorAddress] = _depositors[depositorAddress] + amount;
             }
             
             // update project current balance
-            _projectCurrentBalance += msg.value;
+            _projectCurrentBalance += amount;
         } else if ((block.timestamp > (_projectCreatedAt + 30 days)) && _projectCurrentBalance < _maxProjectBalance) {
             // if someone tries to credit amount but the project created was more than 30 days
             // so don't allow address to credit amount. Also, goal is not met, so refund amount to the depositors.
